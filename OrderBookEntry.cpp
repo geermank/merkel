@@ -29,3 +29,12 @@ OrderBookType OrderBookEntry::stringToOrderBookType(std::string s)
   }
   return OrderBookType::unknown;
 }
+
+std::string OrderBookEntry::orderBookTypeToString(OrderBookType t)
+{
+  if (t == OrderBookType::ask) return "ask";
+  if (t == OrderBookType::bid) return "bid";
+  if (t == OrderBookType::asksale) return "ask sale";
+  if (t == OrderBookType::bidsale) return "bid sale";
+  return "unknown";
+}

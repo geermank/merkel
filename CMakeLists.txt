@@ -16,4 +16,8 @@ add_executable(untitled main.cpp
         auth/UserManager.h
         auth/User.h
         auth/User.cpp
-        auth/UserManager.cpp)
+        auth/UserManager.cpp
+        candlestick/Candlestick.h
+        candlestick/Candlestick.cpp
+        candlestick/CandlestickCalculator.h
+        candlestick/CandlestickCalculator.cpp)

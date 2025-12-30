@@ -12,6 +12,7 @@ class OrderBook
     /** return vector of all know products in the dataset*/
         std::vector<std::string> getKnownProducts();
     /** return vector of Orders according to the sent filters*/
+        std::vector<OrderBookEntry> getOrders(const OrderBookType& type, const std::string& product);
         std::vector<OrderBookEntry> getOrders(OrderBookType type, 
                                               std::string product, 
                                               std::string timestamp);

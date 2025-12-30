@@ -41,8 +41,10 @@ void MerkelMain::printMenu()
     std::cout << "5: Print wallet " << std::endl;
     // 6 continue   
     std::cout << "6: Continue " << std::endl;
-    // 7 Logout
-    std::cout << "7: Logout " << std::endl;
+    // 7 Candlestick summary
+    std::cout << "7: Candlestick summary " << std::endl;
+    // 8 logout
+    std::cout << "8: Logout" << std::endl;
 
     std::cout << "============== " << std::endl;
 
@@ -197,7 +199,7 @@ int MerkelMain::getUserOption()
 {
     int userOption = 0;
     std::string line;
-    std::cout << "Type in 1-7" << std::endl;
+    std::cout << "Type in 1-8" << std::endl;
     std::getline(std::cin, line);
     try{
         userOption = std::stoi(line);
@@ -214,7 +216,7 @@ void MerkelMain::processUserOption(int userOption)
     if (userOption == 0) // bad input
     {
         //system("clear");
-        std::cout << "Invalid choice. Choose 1-7" << std::endl;
+        std::cout << "Invalid choice. Choose 1-8" << std::endl;
         std::cout << "==========================" << std::endl;
     }
     if (userOption == 1) 
@@ -242,6 +244,10 @@ void MerkelMain::processUserOption(int userOption)
         gotoNextTimeframe();
     }
     if (userOption == 7)
+    {
+        printCandlestickSummary();
+    }
+    if (userOption == 8)
     {
         logout();
     }
@@ -330,3 +336,52 @@ void MerkelMain::handleResetPassword()
     }
 }
 
+CandlestickGranularity MerkelMain::askGranularity()
+{
+    std::cout << "Choose granularity" << std::endl;
+    std::cout << "1. Daily" << std::endl;
+    std::cout << "2. Monthly" << std::endl;
+    std::cout << "3. Yearly" << std::endl;
+    std::cout << "Press Enter for default (yearly): ";
+
+    std::string line;
+    std::getline(std::cin, line);
+
+    // do not cast for simplicity. any other scenario falls under yearly granularity
+    if (line == "1") return CandlestickGranularity::Daily;
+    if (line == "2") return CandlestickGranularity::Monthly;
+    if (line == "3") return CandlestickGranularity::Yearly;
+    return CandlestickGranularity::Yearly;
+}
+
+void MerkelMain::printCandlestickSummary()
+{
+    std::cout << "Enter product (example: ETH/BTC): ";
+    std::string product;
+    std::getline(std::cin, product);
+
+    CandlestickGranularity granularity = askGranularity();
+
+    std::vector<OrderBookEntry> asks = orderBook.getOrders(OrderBookType::ask, product);
+    std::vector<Candlestick> askCandles = CandlestickCalculator::buildCandlesticks(asks, product, OrderBookType::ask, granularity);
+    printCandles("ASK", product, granularity, askCandles);
+
+    std::vector<OrderBookEntry> bids = orderBook.getOrders(OrderBookType::bid, product);
+    std::vector<Candlestick> bidCandles = CandlestickCalculator::buildCandlesticks(bids, product, OrderBookType::bid, granularity);
+    printCandles("BID", product, granularity, bidCandles);
+}
+
+void MerkelMain::printCandles(const std::string& type,
+                  const std::string& product,
+                  const CandlestickGranularity& granularity,
+                  const std::vector<Candlestick>& candles) {
+    std::cout << type << " " <<"Candlesticks for " << product << " (" << granularity << ")" << std::endl;
+    std::cout << "Date, Open, High, Low, Close" << std::endl;
+    for (const Candlestick& c : candles) {
+        std::cout << c.dateKey << ","
+                  << c.open << ","
+                  << c.high << ","
+                  << c.low << ","
+                  << c.close << std::endl;
+    }
+}

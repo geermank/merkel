@@ -6,7 +6,8 @@
 #include "Wallet.h"
 #include "auth/UserManager.h"
 #include "auth/User.h"
-
+#include "candlestick/CandlestickCalculator.h"
+#include "candlestick/Candlestick.h"
 
 class MerkelMain
 {
@@ -24,6 +25,14 @@ class MerkelMain
         void gotoNextTimeframe();
         int getUserOption();
         void processUserOption(int userOption);
+
+
+        void printCandlestickSummary();
+        CandlestickGranularity askGranularity();
+        void printCandles(const std::string& type,
+              const std::string& product,
+              const CandlestickGranularity& granularity,
+              const std::vector<Candlestick>& candles);
 
         void printLoginMenu();
         void handleRegister();

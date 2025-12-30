@@ -17,6 +17,7 @@ class OrderBookEntry
                         std::string username = "dataset");
 
         static OrderBookType stringToOrderBookType(std::string s);
+        static std::string orderBookTypeToString(OrderBookType t);
 
         static bool compareByTimestamp(OrderBookEntry& e1, OrderBookEntry& e2)
         {
