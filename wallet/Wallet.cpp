@@ -1,6 +1,6 @@
 #include "Wallet.h"
 #include <iostream>
-#include "CSVReader.h"
+#include "../CSVReader.h"
 
 Wallet::Wallet()
 {
@@ -8,22 +8,28 @@ Wallet::Wallet()
 
 }
 
-void Wallet::insertCurrency(std::string type, double amount)
+double Wallet::getWalletBalanceForCurrency(std::string type)
 {
-    double balance;
-    if (amount < 0)
-    {
-        throw std::exception();
-    }
+    double balance = 0;
     if (currencies.count(type) == 0) // not there yet
     {
         balance = 0;
     }
-    else { // is there 
+    else { // is there
         balance = currencies[type];
     }
+    return balance;
+}
+
+void Wallet::insertCurrency(std::string type, double amount)
+{
+    if (amount < 0)
+    {
+        throw std::exception();
+    }
+    double balance = getWalletBalanceForCurrency(type);
     balance += amount; 
-    currencies[type] = balance; 
+    currencies[type] = balance;
 }
 
 bool Wallet::removeCurrency(std::string type, double amount)
@@ -61,7 +67,7 @@ bool Wallet::containsCurrency(std::string type, double amount)
 std::string Wallet::toString()
 {
     std::string s;
-    for (std::pair<std::string,double> pair : currencies)
+    for (std::pair<std::string, double> pair : currencies)
     {
         std::string currency = pair.first;
         double amount = pair.second;
@@ -129,3 +135,14 @@ std::ostream& operator<<(std::ostream& os,  Wallet& wallet)
     return os;
 }
 
+std::vector<WalletRecord> Wallet::toWalletRecords(const std::string& username) {
+    std::vector<WalletRecord> records;
+    for (const std::pair<std::string, double> pair : currencies)
+    {
+        std::string currency = pair.first;
+        double amount = pair.second;
+        WalletRecord record = WalletRecord{username, currency, amount};
+        records.push_back(record);
+    }
+    return records;
+}

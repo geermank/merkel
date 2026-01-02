@@ -43,8 +43,16 @@ void MerkelMain::printMenu()
     std::cout << "6: Continue " << std::endl;
     // 7 Candlestick summary
     std::cout << "7: Candlestick summary " << std::endl;
-    // 8 logout
-    std::cout << "8: Logout" << std::endl;
+    // 8 Deposit
+    std::cout << "8: Deposit " << std::endl;
+    // 9 Withdraw
+    std::cout << "9: Withdraw " << std::endl;
+    // 10: Recent transactions
+    std::cout << "10: Recent transactions " << std::endl;
+    // 11: User stats
+    std::cout << "11: User stats" << std::endl;
+    // 12 logout
+    std::cout << "12: Logout" << std::endl;
 
     std::cout << "============== " << std::endl;
 
@@ -163,6 +171,7 @@ void MerkelMain::enterBid()
 
 void MerkelMain::printWallet()
 {
+    std::cout << "Your Wallet" << std::endl;
     std::cout << wallet.toString() << std::endl;
 }
         
@@ -183,7 +192,6 @@ void MerkelMain::gotoNextTimeframe()
                 wallet.processSale(sale);
             }
         }
-        
     }
 
     currentTime = orderBook.getNextTime(currentTime);
@@ -191,6 +199,10 @@ void MerkelMain::gotoNextTimeframe()
 
 void MerkelMain::logout() {
     std::cout << "Goodbye!" << std::endl;
+
+    walletManager.saveWallet(currentUser.getUsername(), wallet);
+    wallet = Wallet{};
+
     isLoggedIn = false;
     currentUser = User{};
 }
@@ -199,7 +211,7 @@ int MerkelMain::getUserOption()
 {
     int userOption = 0;
     std::string line;
-    std::cout << "Type in 1-8" << std::endl;
+    std::cout << "Type in 1-12" << std::endl;
     std::getline(std::cin, line);
     try{
         userOption = std::stoi(line);
@@ -249,6 +261,22 @@ void MerkelMain::processUserOption(int userOption)
     }
     if (userOption == 8)
     {
+        depositMoney();
+    }
+    if (userOption == 9)
+    {
+        withdrawMoney();
+    }
+    if (userOption == 10)
+    {
+        printRecentTransactions();
+    }
+    if (userOption == 11)
+    {
+        printUserStats();
+    }
+    if (userOption == 12)
+    {
         logout();
     }
 }
@@ -290,6 +318,7 @@ void MerkelMain::handleRegister()
     try {
         currentUser = userManager.registerUser(fullName, email, password);
         isLoggedIn = true;
+        loadWallet();
         std::cout << "Registered. Your username is: " << currentUser.getUsername() << std::endl;
     } catch (...) {
         std::cout << "Register failed\n";
@@ -308,6 +337,7 @@ void MerkelMain::handleLogin()
     try {
         currentUser = userManager.login(username, password);
         isLoggedIn = true;
+        loadWallet();
         std::cout << "Logged in successfully. Your username is: " << currentUser.getUsername() << std::endl;
     } catch (std::exception&) {
         std::cout << "Login failed." << std::endl;
@@ -384,4 +414,171 @@ void MerkelMain::printCandles(const std::string& type,
                   << c.low << ","
                   << c.close << std::endl;
     }
+}
+
+void MerkelMain::loadWallet() {
+    wallet = Wallet{};
+    walletManager.loadWallet(currentUser.getUsername(), wallet);
+}
+
+void MerkelMain::depositMoney()
+{
+    std::cout << "Deposit money" << std::endl;
+    std::cout << "Currency (example: BTC): ";
+    std::string currency;
+    std::getline(std::cin, currency);
+
+    std::cout << "Amount: ";
+    std::string amountStr;
+    std::getline(std::cin, amountStr);
+
+    double amount = 0;
+    try {
+        amount = std::stod(amountStr);
+    } catch (...) {
+        std::cout << "Invalid amount" << std::endl;
+        return;
+    }
+
+    if (currency.empty() || amount <= 0) {
+        std::cout << "Invalid input" << std::endl;
+        return;
+    }
+
+    try {
+        wallet.insertCurrency(currency, amount);
+        walletManager.saveWallet(currentUser.getUsername(), wallet);
+
+        double balanceAfter = wallet.getWalletBalanceForCurrency(currency);
+        Transaction t{
+            currentUser.getUsername(),
+            transactionManager.nowTimestamp(),
+            "DEPOSIT",
+            currency,
+            currency,
+            amount,
+            balanceAfter
+        };
+        transactionManager.append(t);
+
+        std::cout << "Deposit successful. New balance (" << currency << "): " << balanceAfter << std::endl;
+    } catch (...) {
+        std::cout << "Deposit failed" << std::endl;
+    }
+}
+
+void MerkelMain::withdrawMoney()
+{
+    std::cout << "Withdraw money" << std::endl;
+    std::cout << "Currency (example: BTC): ";
+    std::string currency;
+    std::getline(std::cin, currency);
+
+    std::cout << "Amount: ";
+    std::string amountStr;
+    std::getline(std::cin, amountStr);
+
+    double amount = 0;
+    try {
+        amount = std::stod(amountStr);
+    } catch (...) {
+        std::cout << "Invalid amount" << std::endl;
+        return;
+    }
+
+    if (currency.empty() || amount <= 0) {
+        std::cout << "Invalid input" << std::endl;
+        return;
+    }
+
+    try {
+        if (!wallet.removeCurrency(currency, amount)) {
+            std::cout << "Insufficient funds" << std::endl;
+            return;
+        }
+        walletManager.saveWallet(currentUser.getUsername(), wallet);
+
+        double balanceAfter = wallet.getWalletBalanceForCurrency(currency);
+        Transaction t {
+            currentUser.getUsername(),
+            transactionManager.nowTimestamp(),
+            "WITHDRAW",
+            currency,
+            currency,
+            amount,
+            balanceAfter
+        };
+        transactionManager.append(t);
+
+        std::cout << "Withdraw successful. New balance (" << currency << "): " << balanceAfter << std::endl;
+    } catch (...) {
+        std::cout << "Withdraw failed" << std::endl;
+    }
+}
+
+void MerkelMain::printRecentTransactions()
+{
+    std::cout << "Recent transactions" << std::endl;
+    std::cout << "Filter by product? (example: ETH/BTC). Press Enter for all: ";
+
+    std::string product;
+    std::getline(std::cin, product);
+
+    std::vector<Transaction> transactions;
+    if (product.empty()) {
+        transactions = transactionManager.lastN(currentUser.getUsername(), 5);
+    } else {
+        transactions = transactionManager.lastNByProduct(currentUser.getUsername(), product, 5);
+    }
+
+    if (transactions.empty()) {
+        std::cout << "No transactions found" << std::endl;
+        return;
+    }
+
+    std::cout << "timestamp, action, product, currency, amount, balanceAfter" << std::endl;
+    for (const Transaction& t : transactions) {
+        std::cout << t.timestamp << ", "
+                  << t.action << ", "
+                  << t.product << ", "
+                  << t.currency << ", "
+                  << t.amount << ", "
+                  << t.balanceAfter << std::endl;
+    }
+}
+
+void MerkelMain::printUserStats()
+{
+    std::cout << "User stats" << std::endl;
+
+    std::cout << "Filter by product? (example: ETH/BTC). Press Enter for all: ";
+    std::string product;
+    std::getline(std::cin, product);
+
+    int asks = transactionManager.countActions(currentUser.getUsername(), "ASK", product);
+    int bids = transactionManager.countActions(currentUser.getUsername(), "BID", product);
+
+    std::cout << "ASK count: " << asks << std::endl;
+    std::cout << "BID count: " << bids << std::endl;
+
+    std::cout << "Timeframe start timestamp (example: 2020/06/01 00:00:00). Press Enter for none: ";
+    std::string startTs;
+    std::getline(std::cin, startTs);
+
+    std::cout << "Timeframe end timestamp (example: 2020/06/30 23:59:59). Press Enter for none: ";
+    std::string endTs;
+    std::getline(std::cin, endTs);
+
+    std::cout << "Currency filter for total spent (example: BTC). Press Enter for none: ";
+    std::string currency;
+    std::getline(std::cin, currency);
+
+    double totalSpent = transactionManager.totalSpentInTimeframe(
+        currentUser.getUsername(),
+        startTs,
+        endTs,
+        currency
+    );
+
+    std::cout << "Total spent in timeframe: " << totalSpent << std::endl;
 }

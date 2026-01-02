@@ -38,6 +38,76 @@ std::vector<User> CSVReader::readUsersCSV(const std::string& csvFilename)
     return users;
 }
 
+std::vector<Transaction> CSVReader::readTransactionsCSV(const std::string& csvFilename)
+{
+    std::vector<Transaction> transactions;
+    std::ifstream file(csvFilename);
+    if (!file.is_open()) {
+        std::cout << "CSVReader::readTransactionsCSV couldn't open file" << std::endl;
+        return transactions;
+    }
+
+    std::string line;
+    while (std::getline(file, line)) {
+        if (line.empty()) continue;
+
+        std::vector<std::string> tokens = tokenise(line, ',');
+        if (tokens.size() != 7) {
+            std::cout << "CSVReader::readTransactionsCSV bad data" << std::endl;
+            continue;
+        }
+
+        try {
+            double amount = std::stod(tokens[5]);
+            double balanceAfter = std::stod(tokens[6]);
+
+            Transaction t{
+                tokens[0],
+                tokens[1],
+                tokens[2],
+                tokens[3],
+                tokens[4],
+                amount,
+                balanceAfter
+            };
+            transactions.push_back(t);
+        } catch (...) {
+            std::cout << "CSVReader::readTransactionsCSV bad number" << std::endl;
+        }
+    }
+
+    return transactions;
+}
+
+std::vector<WalletRecord> CSVReader::readWalletsCSV(const std::string& csvFilename)
+{
+    std::vector<WalletRecord> records;
+
+    std::ifstream file(csvFilename);
+    if (!file.is_open()) return records;
+
+    std::string line;
+    while (std::getline(file, line)) {
+        if (line.empty()) continue;
+
+        std::vector<std::string> tokens = tokenise(line, ',');
+        if (tokens.size() != 3) {
+            std::cout << "CSVReader::readWalletsCSV bad data" << std::endl;
+            continue;
+        }
+
+        try {
+            double amount = std::stod(tokens[2]);
+            WalletRecord r(tokens[0], tokens[1], amount);
+            records.push_back(r);
+        } catch (...) {
+            std::cout << "CSVReader::readWalletsCSV bad number" << std::endl;
+        }
+    }
+
+    return records;
+}
+
 std::vector<OrderBookEntry> CSVReader::readCSV(const std::string& csvFilename)
 {
     std::vector<OrderBookEntry> entries;
@@ -133,4 +203,18 @@ OrderBookEntry CSVReader::stringsToOBE(std::string priceString,
                 
     return obe;
 }
-     
+
+std::string CSVReader::transactionToCSV(const Transaction &t) {
+    return t.username + "," +
+       t.timestamp + "," +
+       t.action + "," +
+       t.product + "," +
+       t.currency + "," +
+       std::to_string(t.amount) + "," +
+       std::to_string(t.balanceAfter);
+}
+
+std::string CSVReader::walletRecordToCSV(const WalletRecord& wr)
+{
+    return wr.username + "," + wr.currency + "," + std::to_string(wr.amount);
+}

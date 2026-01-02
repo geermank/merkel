@@ -2,8 +2,9 @@
 
 #include <string>
 #include <map>
-#include "OrderBookEntry.h"
 #include <iostream>
+#include "../OrderBookEntry.h"
+#include "WalletRecord.h"
 
 class Wallet 
 {
@@ -22,7 +23,14 @@ class Wallet
          * assumes the order was made by the owner of the wallet
         */
         void processSale(OrderBookEntry& sale);
+        double getWalletBalanceForCurrency(std::string type);
 
+        /**
+         * Converts the currencies in this wallet into WalletRecord instances
+         * @param username the current logged in user
+         * @return the currencies and its amounts as walletRecord
+         */
+        std::vector<WalletRecord> toWalletRecords(const std::string& username);
 
         /** generate a string representation of the wallet */
         std::string toString();
