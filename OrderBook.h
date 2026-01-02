@@ -19,6 +19,8 @@ class OrderBook
 
         /** returns the earliest time in the orderbook*/
         std::string getEarliestTime();
+        /** returns the latest time in the orderbook*/
+        std::string getLatestTime();
         /** returns the next time after the 
          * sent time in the orderbook  
          * If there is no next timestamp, wraps around to the start

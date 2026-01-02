@@ -1,7 +1,6 @@
 #include "TradeSimulator.h"
 #include "../CSVReader.h"
 #include <cstdlib>
-#include <ctime>
 #include <algorithm>
 
 double TradeSimulator::randBetween(double low, double high) {
@@ -11,100 +10,57 @@ double TradeSimulator::randBetween(double low, double high) {
     return low + r * (high - low);
 }
 
-void TradeSimulator::addBalanceToWalletIfNeeded(const std::vector<std::string>& products,
+void TradeSimulator::addCurrenciesToWallet(const std::vector<std::string>& products,
                                         Wallet& wallet,
                                         TransactionManager& txManager,
                                         const std::string& username)
 {
-    // If wallet is empty add small balances so we can always generate orders
-    std::vector<std::string> currencies;
+    // deposit a fixed amount of each currency to guarantee orders will always execute
+    std::map<std::string, bool> currencies;
 
     for (const std::string& p : products) {
         std::vector<std::string> parts = CSVReader::tokenise(p, '/');
         if (parts.size() == 2) {
-            currencies.push_back(parts[0]);
-            currencies.push_back(parts[1]);
+            currencies[parts[0]] = true;
+            currencies[parts[1]] = true;
         }
     }
 
-    std::sort(currencies.begin(), currencies.end());
+    for (const std::pair<const std::string, bool>& pair : currencies) {
+        const std::string& currency = pair.first;
 
-    // get rid of duplicates
-    std::map<std::string, bool> uniqueCurrencies;
-    for (const std::string& c : currencies) {
-        uniqueCurrencies[c] = true;
-    }
-    currencies.clear();
-    for (const auto& p : uniqueCurrencies) {
-        currencies.push_back(p.first);
-    }
+        wallet.insertCurrency(currency, 10.0);
 
-
-    bool hasAny = false;
-    for (const std::string& c : currencies) {
-        if (wallet.getWalletBalanceForCurrency(c) > 0) {
-            hasAny = true;
-            break;
-        }
-    }
-    if (hasAny) return;
-
-    for (const std::string& c : currencies) {
-        wallet.insertCurrency(c, 10.0);
         Transaction t{
             username,
             txManager.nowTimestamp(),
             "DEPOSIT",
-            c,
-            c,
+            currency,
+            currency,
             10.0,
-            wallet.getWalletBalanceForCurrency(c)
+            wallet.getWalletBalanceForCurrency(currency)
         };
         txManager.append(t);
     }
 }
 
-double TradeSimulator::computeMidPrice(OrderBook& orderBook,
-                                       const std::string& product,
-                                       const std::string& timestamp)
-{
-    auto asks = orderBook.getOrders(OrderBookType::ask, product, timestamp);
-    auto bids = orderBook.getOrders(OrderBookType::bid, product, timestamp);
-
-    if (asks.empty() || bids.empty()) {
-        // fallback: if one side empty at that timestamp, look at global orders for product
-        auto asksAll = orderBook.getOrders(OrderBookType::ask, product);
-        auto bidsAll = orderBook.getOrders(OrderBookType::bid, product);
-        if (asksAll.empty() || bidsAll.empty()) return 1.0;
-
-        double bestAsk = OrderBook::getLowPrice(asksAll);
-        double bestBid = OrderBook::getHighPrice(bidsAll);
-        return (bestAsk + bestBid) / 2.0;
-    }
-
-    double bestAsk = OrderBook::getLowPrice(asks);
-    double bestBid = OrderBook::getHighPrice(bids);
-    return (bestAsk + bestBid) / 2.0;
-}
-
-void TradeSimulator::addMarketLiquidityAtTimestamp(OrderBook& orderBook,
+void TradeSimulator::addMarketOrdersAtTimestamp(OrderBook& orderBook,
                                                    const std::vector<std::string>& products,
                                                    const std::string& sourceTimestamp,
                                                    const std::string& newTimestamp)
 {
-    // Duplicate a small slice of the market depth at "sourceTimestamp" to "newTimestamp"
-    // so orders with system timestamp can actually match.
-    // This does NOT modify the market file; it’s in-memory only.
     for (const std::string& product : products) {
-        auto asks = orderBook.getOrders(OrderBookType::ask, product, sourceTimestamp);
-        auto bids = orderBook.getOrders(OrderBookType::bid, product, sourceTimestamp);
+        std::vector<OrderBookEntry> asks = orderBook.getOrders(OrderBookType::ask, product, sourceTimestamp);
+        std::vector<OrderBookEntry> bids = orderBook.getOrders(OrderBookType::bid, product, sourceTimestamp);
 
-        // keep only a small depth (10 each) to avoid exploding the book
+        if (asks.empty()) asks = orderBook.getOrders(OrderBookType::ask, product);
+        if (bids.empty()) bids = orderBook.getOrders(OrderBookType::bid, product);
+
         std::sort(asks.begin(), asks.end(), OrderBookEntry::compareByPriceAsc);
         std::sort(bids.begin(), bids.end(), OrderBookEntry::compareByPriceDesc);
 
         int depth = 10;
-        for (int i = 0; i < (int)asks.size() && i < depth; i++) {
+        for (int i = 0; i < (int) asks.size() && i < depth; i++) {
             OrderBookEntry e{asks[i].price, asks[i].amount, newTimestamp, product, OrderBookType::ask, "dataset"};
             orderBook.insertOrder(e);
         }
@@ -115,6 +71,8 @@ void TradeSimulator::addMarketLiquidityAtTimestamp(OrderBook& orderBook,
     }
 }
 
+
+
 void TradeSimulator::createOrdersForProduct(OrderBook& orderBook,
                                             Wallet& wallet,
                                             TransactionManager& txManager,
@@ -123,94 +81,80 @@ void TradeSimulator::createOrdersForProduct(OrderBook& orderBook,
                                             const std::string& nowTs,
                                             int n)
 {
-    auto parts = CSVReader::tokenise(product, '/');
+    std::vector<std::string> parts = CSVReader::tokenise(product, '/');
     if (parts.size() != 2) return;
-    std::string base = parts[0];
-    std::string quote = parts[1];
 
-    // Use mid price derived from LAST market timestamp (we pass that in by preparing liquidity)
-    // Prices:
-    // - ask slightly above mid
-    // - bid slightly below mid
-    double mid = computeMidPrice(orderBook, product, nowTs);
+    std::string p1 = parts[0];
+    std::string p2 = parts[1];
+
+    std::vector<OrderBookEntry> asksNow = orderBook.getOrders(OrderBookType::ask, product, nowTs);
+    std::vector<OrderBookEntry> bidsNow = orderBook.getOrders(OrderBookType::bid, product, nowTs);
+    if (asksNow.empty() || bidsNow.empty()) return;
+
+    double bestAsk = OrderBook::getLowPrice(asksNow);
+    double bestBid = OrderBook::getHighPrice(bidsNow);
 
     for (int i = 0; i < n; i++) {
-        // ASK
-        {
-            double baseBal = wallet.getWalletBalanceForCurrency(base);
-            double maxAmt = baseBal * 0.20;                 // at most 20% of balance
-            double amt = (maxAmt > 0) ? randBetween(maxAmt * 0.10, maxAmt) : 0.0;
 
-            double askPrice = mid * (1.0 + randBetween(0.005, 0.02)); // +0.5%..+2%
+        double p1Bal = wallet.getWalletBalanceForCurrency(p1);
+        double maxAmt = p1Bal * 0.20;
+        double amt = randBetween(maxAmt * 0.10, maxAmt);
+        double askPrice = bestBid * (1.0 - randBetween(0.0005, 0.002));
 
-            if (amt > 0) {
-                OrderBookEntry ask{askPrice, amt, nowTs, product, OrderBookType::ask, username};
-                if (wallet.canFulfillOrder(ask)) {
-                    orderBook.insertOrder(ask);
-
-                    Transaction t{
-                        username,
-                        txManager.nowTimestamp(),   // transaction log time
-                        "ASK",
-                        product,
-                        base,
-                        amt,
-                        wallet.getWalletBalanceForCurrency(base)
-                    };
-                    txManager.append(t);
-                }
-            }
+        OrderBookEntry ask{askPrice, amt, nowTs, product, OrderBookType::ask, username};
+        if (wallet.canFulfillOrder(ask)) {
+            orderBook.insertOrder(ask);
+            Transaction t{
+                username,
+                txManager.nowTimestamp(),
+                "ASK",
+                product,
+                p1,
+                amt,
+                wallet.getWalletBalanceForCurrency(p1)
+            };
+            txManager.append(t);
         }
 
-        // BID
-        {
-            double quoteBal = wallet.getWalletBalanceForCurrency(quote);
-            double bidPrice = mid * (1.0 - randBetween(0.005, 0.02)); // -0.5%..-2%
+        double p2Bal = wallet.getWalletBalanceForCurrency(p2);
+        double bidPrice = bestAsk * (1.0 + randBetween(0.0005, 0.002));
+        double maxSpend = p2Bal * 0.20;
+        double spend = randBetween(maxSpend * 0.10, maxSpend);
+        double amtBase = spend / bidPrice;
 
-            double maxSpend = quoteBal * 0.20;                         // spend <=20%
-            double spend = (maxSpend > 0) ? randBetween(maxSpend * 0.10, maxSpend) : 0.0;
-            double amtBase = (bidPrice > 0) ? (spend / bidPrice) : 0.0;
-
-            if (amtBase > 0) {
-                OrderBookEntry bid{bidPrice, amtBase, nowTs, product, OrderBookType::bid, username};
-                if (wallet.canFulfillOrder(bid)) {
-                    orderBook.insertOrder(bid);
-
-                    Transaction t{
-                        username,
-                        txManager.nowTimestamp(),
-                        "BID",
-                        product,
-                        quote,
-                        spend, // record "money spent" in quote currency
-                        wallet.getWalletBalanceForCurrency(quote)
-                    };
-                    txManager.append(t);
-                }
-            }
+        OrderBookEntry bid{bidPrice, amtBase, nowTs, product, OrderBookType::bid, username};
+        if (wallet.canFulfillOrder(bid)) {
+            orderBook.insertOrder(bid);
+            Transaction t{
+                username,
+                txManager.nowTimestamp(),
+                "BID",
+                product,
+                p2,
+                spend,
+                wallet.getWalletBalanceForCurrency(p2)
+            };
+            txManager.append(t);
         }
     }
 }
 
-void TradeSimulator::simulateForAllProducts(OrderBook& orderBook,
+std::string TradeSimulator::simulateForAllProducts(OrderBook& orderBook,
                                             Wallet& wallet,
                                             TransactionManager& txManager,
                                             const std::string& username,
                                             int ordersPerSidePerProduct)
 {
-    std::srand((unsigned int) std::time(nullptr));
-
-    auto products = orderBook.getKnownProducts();
-    addBalanceToWalletIfNeeded(products, wallet, txManager, username);
+    std::vector<std::string> products = orderBook.getKnownProducts();
+    addCurrenciesToWallet(products, wallet, txManager, username);
 
     std::string nowTs = txManager.nowTimestamp();
-
-    // Use last dataset timestamp as price reference, then replicate liquidity at nowTs
     std::string lastTs = orderBook.getLatestTime();
-    addMarketLiquidityAtTimestamp(orderBook, products, lastTs, nowTs);
+    addMarketOrdersAtTimestamp(orderBook, products, lastTs, nowTs);
 
-    // Now generate user orders at nowTs
     for (const std::string& product : products) {
         createOrdersForProduct(orderBook, wallet, txManager, username, product, nowTs, ordersPerSidePerProduct);
     }
+
+    return nowTs;
 }

@@ -10,6 +10,7 @@
 #include "candlestick/Candlestick.h"
 #include "wallet/WalletManager.h"
 #include "transactions/TransactionManager.h"
+#include "simulation/TradeSimulator.h"
 
 class MerkelMain
 {
@@ -31,6 +32,8 @@ class MerkelMain
         void withdrawMoney();
         void printRecentTransactions();
         void printUserStats();
+        void simulateUserTrading();
+
 
         void printCandlestickSummary();
         CandlestickGranularity askGranularity();

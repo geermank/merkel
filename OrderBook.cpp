@@ -90,6 +90,11 @@ std::string OrderBook::getEarliestTime()
     return orders[0].timestamp;
 }
 
+std::string OrderBook::getLatestTime()
+{
+    return orders[orders.size()-1].timestamp;
+}
+
 std::string OrderBook::getNextTime(std::string timestamp)
 {
     std::string next_timestamp = "";
@@ -160,15 +165,13 @@ std::vector<OrderBookEntry> OrderBook::matchAsksToBids(std::string product, std:
                 product, 
                 OrderBookType::asksale};
 
-                if (bid.username == "simuser")
-                {
-                    sale.username = "simuser";
+                if (bid.username != "dataset") {
+                    sale.username = bid.username;
                     sale.orderType = OrderBookType::bidsale;
                 }
-                if (ask.username == "simuser")
-                {
-                    sale.username = "simuser";
-                    sale.orderType =  OrderBookType::asksale;
+                if (ask.username != "dataset") {
+                    sale.username = ask.username;
+                    sale.orderType = OrderBookType::asksale;
                 }
             
     //             # now work out how much was sold and 

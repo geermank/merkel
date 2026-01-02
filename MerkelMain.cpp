@@ -51,8 +51,10 @@ void MerkelMain::printMenu()
     std::cout << "10: Recent transactions " << std::endl;
     // 11: User stats
     std::cout << "11: User stats" << std::endl;
-    // 12 logout
-    std::cout << "12: Logout" << std::endl;
+    // 12: Simulate trading
+    std::cout << "12: Simulate trading" << std::endl;
+    // 13 logout
+    std::cout << "13: Logout" << std::endl;
 
     std::cout << "============== " << std::endl;
 
@@ -185,8 +187,12 @@ void MerkelMain::gotoNextTimeframe()
         std::cout << "Sales: " << sales.size() << std::endl;
         for (OrderBookEntry& sale : sales)
         {
-            std::cout << "Sale price: " << sale.price << " amount " << sale.amount << std::endl; 
-            if (sale.username == "simuser")
+            std::cout << "Sale price: " << sale.price
+                      << " amount " << sale.amount
+                      << " type " << OrderBookEntry::orderBookTypeToString(sale.orderType)
+                      << " user " << sale.username
+                      << std::endl;
+            if (sale.username == currentUser.getUsername())
             {
                 // update the wallet
                 wallet.processSale(sale);
@@ -211,7 +217,7 @@ int MerkelMain::getUserOption()
 {
     int userOption = 0;
     std::string line;
-    std::cout << "Type in 1-12" << std::endl;
+    std::cout << "Type in 1-13" << std::endl;
     std::getline(std::cin, line);
     try{
         userOption = std::stoi(line);
@@ -276,6 +282,10 @@ void MerkelMain::processUserOption(int userOption)
         printUserStats();
     }
     if (userOption == 12)
+    {
+        simulateUserTrading();
+    }
+    if (userOption == 13)
     {
         logout();
     }
@@ -581,4 +591,17 @@ void MerkelMain::printUserStats()
     );
 
     std::cout << "Total spent in timeframe: " << totalSpent << std::endl;
+}
+
+void MerkelMain::simulateUserTrading()
+{
+    std::cout << "Simulating user trading activities" << std::endl;
+
+    std::string simulationTimestamp = TradeSimulator::simulateForAllProducts(orderBook, wallet, transactionManager, currentUser.getUsername(), 5);
+
+    walletManager.saveWallet(currentUser.getUsername(), wallet);
+
+    currentTime = simulationTimestamp;
+
+    std::cout << "Simulation done. Current time set to: " << currentTime << std::endl;
 }
