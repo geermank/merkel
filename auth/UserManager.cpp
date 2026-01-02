@@ -34,8 +34,8 @@ bool UserManager::usernameExists(const std::string& username) {
 }
 
 bool UserManager::isValidEmail(const std::string &email) {
-    // simple/naive email validation. There are much more cases to validate
-    // but for the sake of simplicity, just verify the string contains an @ symbol
+    // simple/naive email validation. There are many more cases to validate,
+    // but for the sake of simplicity, I just verify that the string contains an @ symbol
     for (const char& c : email) {
         if (c == '@') {
             return true;
@@ -45,7 +45,7 @@ bool UserManager::isValidEmail(const std::string &email) {
 }
 
 std::string UserManager::generateUniqueUsername10() {
-    // this code was obtained by using stackoverflow
+    // I generated this code based on this stackoverflow post:
     // https://stackoverflow.com/questions/35978987/how-to-generate-n-digit-random-numbers
     std::random_device rd;
     std::mt19937 gen(rd());
@@ -64,7 +64,7 @@ std::string UserManager::generateUniqueUsername10() {
 void UserManager::appendUserToFile(const User& u) {
     // used the help of stackoverflow:
     // https://stackoverflow.com/questions/71883343/how-to-write-to-file-in-c
-    // but use app to actually append data
+    // but use 'app' mode to actually append data
     std::ofstream usersFile(usersCsvPath, std::ios::app);
     if (!usersFile.is_open())
     {
@@ -109,7 +109,7 @@ User UserManager::registerUser(const std::string& fullName,
     std::string username = generateUniqueUsername10();
     std::string passHash = hashPassword(passwordPlain);
 
-    User u{username, fullName, email, passHash};
+    User u{ username, fullName, email, passHash };
     users.push_back(u);
     appendUserToFile(u);
     return u;

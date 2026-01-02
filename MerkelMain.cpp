@@ -3,6 +3,7 @@
 #include "MerkelMain.h"
 #include "OrderBookEntry.h"
 #include "CSVReader.h"
+#include "simulation/TradeSimulator.h"
 
 MerkelMain::MerkelMain()
 {

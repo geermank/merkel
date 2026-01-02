@@ -28,6 +28,7 @@ void TransactionManager::append(Transaction t)
 std::vector<Transaction> TransactionManager::lastN(const std::string& username, int n)
 {
     std::vector<Transaction> result;
+    // iterate the transactions vector backwards to get the last n registered transactions
     for (int i = (int) transactions.size() - 1; i >= 0 && result.size() < n; i--) {
         if (transactions[i].username == username) {
             result.push_back(transactions[i]);
@@ -41,7 +42,8 @@ std::vector<Transaction> TransactionManager::lastNByProduct(const std::string& u
                                                             int n)
 {
     std::vector<Transaction> result;
-
+    // iterate the transactions vector backwards to get the last n registered transactions
+    // filtering by the given product
     for (int i = (int) transactions.size() - 1; i >= 0 && result.size() < n; i--) {
         if (transactions[i].username == username && transactions[i].product == product) {
             result.push_back(transactions[i]);
@@ -76,19 +78,19 @@ double TransactionManager::totalSpentInTimeframe(std::string username,
                                                  std::string currency)
 {
     double total = 0;
-
     for (const Transaction& t : transactions) {
+        // check if this transaction applies for contabilization
         if (t.username != username) continue;
-
         if (!isBetween(t.timestamp, startTimestamp, endTimestamp)) continue;
 
         if (t.action == "BID" || t.action == "ASK") {
+            // filter by currency if required, although this is an optional param
             if (currency.empty() || t.currency == currency) {
+                // only take into account the bids made by this user
                 if (t.action == "BID") total += t.amount;
             }
         }
     }
-
     return total;
 }
 

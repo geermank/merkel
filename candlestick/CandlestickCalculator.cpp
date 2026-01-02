@@ -1,7 +1,6 @@
 #include "CandlestickCalculator.h"
 #include <map>
 #include <algorithm>
-#include <iostream>
 
 #include "../OrderBook.h"
 
@@ -20,7 +19,6 @@ std::string CandlestickCalculator::getDateKey(const std::string& timestamp, cons
         if (timestamp.size() >= 4) return timestamp.substr(0, 4);
         return timestamp;
     }
-
     return timestamp.substr(0, 4);
 }
 
@@ -31,9 +29,11 @@ std::vector<Candlestick> CandlestickCalculator::buildCandlesticks(std::vector<Or
 {
     std::vector<Candlestick> result;
 
+    // sort by timestamp to guarantee the correct order of the candles later
     std::sort(entries.begin(), entries.end(), OrderBookEntry::compareByTimestamp);
 
-    // use a map to group candles with the same temporality
+    // use a map to group entries with the same temporality
+    // based on the result of the getDateKey method
     std::map<std::string, std::vector<OrderBookEntry>> candlesData;
     for (const OrderBookEntry& e : entries) {
         std::string key = getDateKey(e.timestamp, granularity);
@@ -52,7 +52,7 @@ std::vector<Candlestick> CandlestickCalculator::buildCandlesticks(std::vector<Or
         double high = OrderBook::getHighPrice(candleEntries);
         double low =  OrderBook::getLowPrice(candleEntries);
 
-        Candlestick c {product, OrderBookEntry::orderBookTypeToString(type), candleKey, open, high, low, close};
+        Candlestick c { product, OrderBookEntry::orderBookTypeToString(type), candleKey, open, high, low, close };
         result.push_back(c);
     }
 

@@ -10,7 +10,6 @@
 #include "candlestick/Candlestick.h"
 #include "wallet/WalletManager.h"
 #include "transactions/TransactionManager.h"
-#include "simulation/TradeSimulator.h"
 
 class MerkelMain
 {
